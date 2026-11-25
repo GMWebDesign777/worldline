@@ -4,87 +4,13 @@
  * Needs: only React 18 + Tailwind CSS. Fonts load from Google Fonts (no npm package).
  */
 import { useEffect, useRef, useState } from 'react'
+import { useLanguage } from '../../../context/LanguageContext'
+import type { DestinationItem } from '../../../i18n/translations'
 
 const FONT_URL =
-  'https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600&display=swap'
+  'https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600&family=Noto+Sans+Georgian:wght@400;500;600;700&display=swap'
 
 const FRAME_H = 2200
-
-/** Example tours and prices (USD) — replace with real packages.
- *  Photos: Wikimedia Commons (free licences, credited on the card). Image links are the CDN URLs below. */
-const PLACES = [
-  {
-    name: 'Sajek Valley',
-    route: 'About 9 hours by road from Dhaka',
-    mode: 'road' as 'road' | 'air',
-    img: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a1/Sajek_Valley_Bangladesh.jpg/960px-Sajek_Valley_Bangladesh.jpg',
-    pos: '50% 35%',
-    alt: "Clouds over the green hills of Sajek Valley",
-    credit: { author: 'Zohrakeya', license: 'CC BY-SA 4.0', page: 'https://commons.wikimedia.org/wiki/File:Sajek_Valley_Bangladesh.jpg' },
-    coord: '23.38° N · 92.29° E',
-    country: 'Bangladesh',
-    days: '3 days',
-    note: 'A night in a hill cottage, so you are up for the clouds at 6 am.',
-    light: 'Sunrise 6:05 am',
-    temp: '18°C',
-    price: '$159',
-    sky: 'bg-[radial-gradient(80%_50%_at_30%_40%,#FFE7C2_0%,rgba(255,231,194,0)_60%),linear-gradient(180deg,#A9C2D6_0%,#E9E3D6_45%,#F4EEE6_58%,#6E8B63_70%,#2E4A31_100%)]',
-  },
-  {
-    name: "Cox's Bazar",
-    route: '1 hour by air, or overnight by bus',
-    mode: 'air' as 'road' | 'air',
-    img: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/9/92/Cox%27s_Bazar_sea_beach_01.jpg/960px-Cox%27s_Bazar_sea_beach_01.jpg',
-    pos: '62% 50%',
-    alt: "Sunset over the wet sand at Cox's Bazar sea beach",
-    credit: { author: 'Tanweer Morshed', license: 'CC BY-SA 3.0', page: 'https://commons.wikimedia.org/wiki/File:Cox%27s_Bazar_sea_beach_01.jpg' },
-    coord: '21.43° N · 92.01° E',
-    country: 'Bangladesh',
-    days: '3 days',
-    note: 'Three nights near Kolatoli beach, with a day trip down to Inani.',
-    light: 'Sunset 5:12 pm',
-    temp: '27°C',
-    price: '$189',
-    sky: 'bg-[radial-gradient(90%_60%_at_50%_68%,#FFD39A_0%,rgba(255,211,154,0)_60%),linear-gradient(180deg,#5B6FA3_0%,#E59B78_55%,#F7C58C_64%,#2F5B6E_66%,#1E3442_100%)]',
-  },
-  {
-    name: 'Pokhara',
-    route: 'Fly via Kathmandu, about 3 hours',
-    mode: 'air' as 'road' | 'air',
-    img: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f3/The_Annapurna_range_from_Pokhara.jpg/960px-The_Annapurna_range_from_Pokhara.jpg',
-    pos: '50% 40%',
-    alt: "Phewa Lake and the Annapurna range above Pokhara",
-    credit: { author: 'Jmhullot', license: 'CC BY 3.0', page: 'https://commons.wikimedia.org/wiki/File:The_Annapurna_range_from_Pokhara.jpg' },
-    coord: '28.21° N · 83.99° E',
-    country: 'Nepal',
-    days: '5 days',
-    note: 'Two nights at Lakeside, a boat on Phewa Lake and sunrise from Sarangkot.',
-    light: 'Sunset 5:24 pm',
-    temp: '19°C',
-    price: '$449',
-    sky: 'bg-[radial-gradient(120%_70%_at_70%_100%,#F3B79A_0%,rgba(243,183,154,0)_55%),linear-gradient(180deg,#2E3F6E_0%,#8C7FA6_48%,#E7B6A6_72%,#4B4E63_100%)]',
-  },
-  {
-    name: 'Ubud',
-    route: 'One stop via Kuala Lumpur or Singapore',
-    mode: 'air' as 'road' | 'air',
-    img: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f8/Rice_terraces%2C_Ubud%2C_Bali.jpg/960px-Rice_terraces%2C_Ubud%2C_Bali.jpg',
-    pos: '35% 50%',
-    alt: "Rice terraces and palm trees near Ubud",
-    credit: { author: 'Vyacheslav Argenberg', license: 'CC BY 4.0', page: 'https://commons.wikimedia.org/wiki/File:Rice_terraces,_Ubud,_Bali.jpg' },
-    coord: '8.51° S · 115.26° E',
-    country: 'Bali, Indonesia',
-    days: '6 days',
-    note: 'Rice terraces, a cooking class and a morning at Tirta Empul.',
-    light: 'Sunset 6:22 pm',
-    temp: '28°C',
-    price: '$799',
-    sky: 'bg-[radial-gradient(70%_50%_at_75%_55%,#FFC27A_0%,rgba(255,194,122,0)_60%),linear-gradient(180deg,#3D5A6B_0%,#C99668_52%,#7C8A3E_68%,#2F4720_100%)]',
-  },
-]
-
-const CREDITS =
-  "Photos from Wikimedia Commons: Sajek Valley by Zohrakeya (CC BY-SA 4.0), Cox's Bazar by Tanweer Morshed (CC BY-SA 3.0), Pokhara by Jmhullot (CC BY 3.0), Ubud by Vyacheslav Argenberg (CC BY 4.0)."
 
 export default function Destinations() {
   return <Responsive desktop={<Desktop />} mobile={<Mobile />} />
@@ -102,11 +28,12 @@ const CARD_W = 480
 const CARD_H = 300
 
 function Desktop() {
+  const { isKa, t, typo } = useLanguage()
   const sectionRef = useRef<HTMLElement>(null)
   const roadRef = useRef<SVGPathElement>(null)
   const doneRef = useRef<SVGPathElement>(null)
   const carRef = useRef<SVGGElement>(null)
-  const [arrived, setArrived] = useState(-1) // last stop reached (-1 = still in Dhaka)
+  const [arrived, setArrived] = useState(-1) // last stop reached (-1 = still in Georgia)
   const reduced = usePrefersReduced()
   const d = smoothPath(ROUTE)
 
@@ -171,22 +98,26 @@ function Desktop() {
       <Topo width={1600} height={FRAME_H} color="#EDEEE8" opacity={0.05} cx={260} cy={1500} rings={30} />
       <div style={at(120, 128)}>
         <Reveal>
-          <Label light>Booked most this month</Label>
+          <Label light isKa={isKa}>{t.destinations.label}</Label>
         </Reveal>
       </div>
       <div style={at(120, 178, 900)}>
         <Reveal delay={150}>
-          <h2 className="font-['Outfit',system-ui,sans-serif] text-[92px] font-bold leading-[0.95] tracking-[-0.035em] text-[#EDEEE8]">
-            Where people are
+          <h2
+            className={`${typo.headingFontClass} font-bold text-[#EDEEE8] ${
+              isKa ? 'text-[74px] leading-[1.06] tracking-[-0.02em]' : 'text-[92px] leading-[0.95] tracking-[-0.035em]'
+            }`}
+          >
+            {t.destinations.titleLine1}
             <br />
-            going <span className="text-[#F3A26B]">in November</span>
+            <span className="text-[#F3A26B]">{t.destinations.titleLine2}</span>
           </h2>
         </Reveal>
       </div>
       <div style={at(1060, 214, 420)}>
         <Reveal delay={250}>
-          <p className="text-[18px] leading-[1.6] text-[#EDEEE8]/70">
-            Four trips, starting from Dhaka. Scroll down the road to see each stop, what the tour includes and what it costs.
+          <p className={`text-[#EDEEE8]/70 ${isKa ? 'text-[15.5px] leading-[1.6]' : 'text-[18px] leading-[1.6]'}`}>
+            {t.destinations.description}
           </p>
         </Reveal>
       </div>
@@ -197,7 +128,7 @@ function Desktop() {
         <path ref={roadRef} d={d} fill="none" stroke="#17312A" strokeWidth="34" strokeLinecap="round" strokeLinejoin="round" />
         <path d={d} fill="none" stroke="#EDEEE8" strokeOpacity=".28" strokeWidth="2.5" strokeDasharray="14 16" strokeLinecap="round" />
         <path ref={doneRef} d={d} fill="none" stroke="#E8824A" strokeWidth="5" strokeLinecap="round" />
-        {/* start: Dhaka */}
+        {/* start: Georgia */}
         <circle cx={ROUTE[0][0]} cy={ROUTE[0][1]} r="13" fill="#EDEEE8" />
         <circle cx={ROUTE[0][0]} cy={ROUTE[0][1]} r="6" fill="#1E3A2E" />
         {/* stops */}
@@ -237,27 +168,30 @@ function Desktop() {
       </svg>
 
       {/* start / end labels */}
-      <div style={at(ROUTE[0][0] + 26, ROUTE[0][1] - 13)} className="whitespace-nowrap text-[16px] font-medium text-[#EDEEE8]/80">
-        Leaving from Dhaka
+      <div
+        style={at(ROUTE[0][0] + 26, ROUTE[0][1] - 13)}
+        className={`whitespace-nowrap font-medium text-[#EDEEE8]/80 ${isKa ? 'text-[14px]' : 'text-[16px]'}`}
+      >
+        {t.destinations.leavingFrom}
       </div>
       <div style={at(ROUTE[ROUTE.length - 1][0] + 48, ROUTE[ROUTE.length - 1][1] - 16)}>
-        <ArrowLink href="#start">40 more destinations</ArrowLink>
+        <ArrowLink href="#start" isKa={isKa}>{t.destinations.moreDestinations}</ArrowLink>
       </div>
 
       {/* how you get there, on the empty side of each stop */}
-      {PLACES.map((p, i) => {
+      {t.destinations.places.map((p, i) => {
         const [x, y] = ROUTE[STOP_POINTS[i]]
         const right = x > 800
         const on = arrived >= i
         return (
           <div
-            key={p.name + '-route'}
+            key={p.coord + '-route'}
             style={{
-              ...at(right ? x - 420 : x + 50, y - 22, 370, 44),
+              ...at(right ? x - 530 : x + 50, y - 22, 480, 44),
               opacity: on ? 1 : 0,
               transition: 'opacity 700ms ease 250ms',
             }}
-            className={`flex items-center gap-[10px] text-[16px] text-[#EDEEE8]/75 ${right ? 'flex-row-reverse text-right' : ''}`}
+            className={`flex items-center gap-[10px] whitespace-nowrap text-[#EDEEE8]/75 ${isKa ? 'text-[14px]' : 'text-[16px]'} ${right ? 'flex-row-reverse text-right' : ''}`}
           >
             <span className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full border border-[#EDEEE8]/20 text-[#F3A26B]">
               {p.mode === 'road' ? <CarIcon /> : <PlaneIcon />}
@@ -268,13 +202,13 @@ function Desktop() {
       })}
 
       {/* tour cards, one per stop */}
-      {PLACES.map((p, i) => {
+      {t.destinations.places.map((p, i) => {
         const [x, y] = ROUTE[STOP_POINTS[i]]
         const right = x > 800
         const on = arrived >= i
         return (
           <div
-            key={p.name}
+            key={p.coord}
             style={{
               ...at(right ? 1000 : 600 - CARD_W, y - CARD_H / 2, CARD_W, CARD_H),
               opacity: on ? 1 : 0,
@@ -287,16 +221,15 @@ function Desktop() {
         )
       })}
 
-      <div style={at(120, FRAME_H - 96, 1360)} className="text-[15px] leading-[1.6] text-[#EDEEE8]/55">
-        Prices are per person in US dollars and include stays, local transport and a guide. International flights are extra.
-        <br />
-        <span className="text-[#EDEEE8]/40">{CREDITS}</span>
+      <div style={at(120, FRAME_H - 86, 1360)} className={`leading-[1.6] text-[#EDEEE8]/55 ${isKa ? 'text-[13.5px]' : 'text-[15px]'}`}>
+        {t.destinations.footnote}
       </div>
     </Artboard>
   )
 }
 
-function StopCard({ place, n, shown }: { place: (typeof PLACES)[number]; n: number; shown: boolean }) {
+function StopCard({ place, n, shown }: { place: DestinationItem; n: number; shown: boolean }) {
+  const { isKa, t, typo } = useLanguage()
   return (
     <a
       href="#start"
@@ -308,20 +241,31 @@ function StopCard({ place, n, shown }: { place: (typeof PLACES)[number]; n: numb
           src={place.img}
           alt={place.alt}
           loading="lazy"
+          referrerPolicy="no-referrer"
           style={{ objectPosition: place.pos, transform: shown ? 'scale(1)' : 'scale(1.12)', transition: 'transform 1800ms cubic-bezier(0.22,1,0.36,1)' }}
           className="absolute inset-0 h-full w-full object-cover"
         />
       </div>
       <div className="flex min-w-0 flex-1 flex-col py-[8px] pr-[8px]">
-        <div className="text-[15px] font-medium text-[#C35F2D]">Stop {n} · {place.country}</div>
-        <h3 className="mt-[6px] font-['Outfit',system-ui,sans-serif] text-[30px] font-semibold leading-none tracking-[-0.02em] text-[#1E3A2E]">{place.name}</h3>
-        <p className="mt-[12px] text-[16px] leading-[1.5] text-[#18231C]/75">{place.note}</p>
+        <div className={`font-medium text-[#C35F2D] ${isKa ? 'text-[13px]' : 'text-[15px]'}`}>
+          {t.destinations.stopPrefix} {n} · {place.country}
+        </div>
+        <h3
+          className={`mt-[6px] ${typo.headingFontClass} font-semibold text-[#1E3A2E] ${
+            isKa ? 'text-[22px] leading-[1.12] tracking-[-0.015em]' : 'text-[28px] leading-[1.04] tracking-[-0.02em]'
+          }`}
+        >
+          {place.name}
+        </h3>
+        <p className={`mt-[10px] text-[#18231C]/75 ${isKa ? 'text-[13.5px] leading-[1.55]' : 'text-[15.5px] leading-[1.5]'}`}>{place.note}</p>
         <div className="mt-auto flex items-end justify-between border-t border-[#1E3A2E]/10 pt-[12px]">
-          <div className="text-[15px] text-[#18231C]/60">
-            {place.days} · from <span className="font-['Outfit',system-ui,sans-serif] text-[22px] font-semibold text-[#1E3A2E]">{place.price}</span>
+          <div className={`text-[#18231C]/60 ${isKa ? 'text-[13px]' : 'text-[15px]'}`}>
+            {place.days} · {t.destinations.fromPrefix}
+            <span className="font-['Outfit',system-ui,sans-serif] text-[22px] font-semibold text-[#1E3A2E]">{place.price}</span>
+            {t.destinations.fromSuffix}
           </div>
-          <span className="flex items-center gap-[4px] text-[15px] font-semibold text-[#C35F2D]">
-            Tour
+          <span className={`flex items-center gap-[4px] font-semibold text-[#C35F2D] ${isKa ? 'text-[13.5px]' : 'text-[15px]'}`}>
+            {t.destinations.tourCta}
             <Arrow />
           </span>
         </div>
@@ -335,6 +279,7 @@ function StopCard({ place, n, shown }: { place: (typeof PLACES)[number]; n: numb
 /*  each card opens when the road reaches its pin.                    */
 /* ------------------------------------------------------------------ */
 function Mobile() {
+  const { isKa, t, typo } = useLanguage()
   const listRef = useRef<HTMLDivElement>(null)
   const fillRef = useRef<HTMLDivElement>(null)
   const pinRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -370,28 +315,34 @@ function Mobile() {
       <Topo width={390} height={1400} color="#EDEEE8" opacity={0.05} cx={60} cy={1200} rings={18} />
       <div className="relative">
         <Reveal>
-          <Label light>Booked most this month</Label>
+          <Label light isKa={isKa}>{t.destinations.label}</Label>
         </Reveal>
         <Reveal delay={150}>
-          <h2 className="mt-5 font-['Outfit',system-ui,sans-serif] text-[48px] font-bold leading-[0.95] tracking-[-0.035em] text-[#EDEEE8]">
-            Where people are going <span className="text-[#F3A26B]">in November</span>
+          <h2
+            className={`mt-5 ${typo.headingFontClass} font-bold text-[#EDEEE8] ${
+              isKa ? 'text-[36px] leading-[1.08] tracking-[-0.02em]' : 'text-[48px] leading-[0.95] tracking-[-0.035em]'
+            }`}
+          >
+            {t.destinations.titleLine1} <span className="text-[#F3A26B]">{t.destinations.titleLine2}</span>
           </h2>
         </Reveal>
-        <p className="mt-5 text-[16px] leading-[1.6] text-[#EDEEE8]/70">Four trips, starting from Dhaka.</p>
+        <p className={`mt-5 text-[#EDEEE8]/70 ${isKa ? 'text-[14.5px] leading-[1.6]' : 'text-[16px] leading-[1.6]'}`}>
+          {t.destinations.mobileDescription}
+        </p>
         <div ref={listRef} className="relative mt-10 pl-[46px]">
           {/* road */}
           <div className="absolute bottom-0 left-[11px] top-0 w-[22px] rounded-full bg-[#17312A]" />
           <div className="absolute bottom-0 left-[21px] top-0 w-[2px] bg-[repeating-linear-gradient(180deg,rgba(236,238,232,.3)_0_10px,transparent_10px_22px)]" />
           <div ref={fillRef} className="absolute left-[20px] top-0 w-[4px] rounded-full bg-[#E8824A]" />
-          <div className="mb-8 flex items-center gap-3 text-[16px] text-[#EDEEE8]/80">
+          <div className={`mb-8 flex items-center gap-3 text-[#EDEEE8]/80 ${isKa ? 'text-[14px]' : 'text-[16px]'}`}>
             <span className="absolute left-[12px] h-[20px] w-[20px] rounded-full border-[5px] border-[#EDEEE8] bg-[#1E3A2E]" />
-            Leaving from Dhaka
+            {t.destinations.leavingFrom}
           </div>
           <div className="flex flex-col gap-8">
-            {PLACES.map((p, i) => {
+            {t.destinations.places.map((p, i) => {
               const on = arrived >= i
               return (
-                <div key={p.name} className="relative">
+                <div key={p.coord} className="relative">
                   <div
                     ref={(el) => { pinRefs.current[i] = el }}
                     className={`absolute -left-[46px] top-[14px] flex h-[30px] w-[30px] items-center justify-center rounded-full text-[15px] font-bold transition-colors duration-500 ${
@@ -414,37 +365,53 @@ function Mobile() {
             })}
           </div>
         </div>
-        <p className="mt-8 text-[15px] leading-[1.6] text-[#EDEEE8]/55">
-          Prices are per person in US dollars and include stays, local transport and a guide.
-          <br />
-          <span className="text-[#EDEEE8]/40">{CREDITS}</span>
+        <p className={`mt-8 text-[#EDEEE8]/55 ${isKa ? 'text-[13.5px] leading-[1.6]' : 'text-[15px] leading-[1.6]'}`}>
+          {t.destinations.mobileFootnote}
         </p>
         <div className="mt-6">
-          <ArrowLink href="#start">40 more destinations</ArrowLink>
+          <ArrowLink href="#start" isKa={isKa}>{t.destinations.moreDestinations}</ArrowLink>
         </div>
       </div>
     </section>
   )
 }
 
-function MobileCard({ place, n }: { place: (typeof PLACES)[number]; n: number }) {
+function MobileCard({ place, n }: { place: DestinationItem; n: number }) {
+  const { isKa, t, typo } = useLanguage()
   return (
     <a href="#start" className="block rounded-[20px] bg-[#F6F9F4] p-[10px] text-[#18231C]">
       <div className="px-[6px] pt-[6px]">
-        <div className="text-[15px] font-medium text-[#C35F2D]">Stop {n} · {place.country}</div>
-        <h3 className="mt-[4px] font-['Outfit',system-ui,sans-serif] text-[28px] font-semibold leading-none tracking-[-0.02em] text-[#1E3A2E]">{place.name}</h3>
-        <p className="mt-[10px] text-[16px] leading-[1.5] text-[#18231C]/75">{place.note}</p>
-        <div className="mt-[10px] flex items-center gap-[8px] text-[15px] text-[#1E3A2E]/70">
+        <div className={`font-medium text-[#C35F2D] ${isKa ? 'text-[13px]' : 'text-[15px]'}`}>
+          {t.destinations.stopPrefix} {n} · {place.country}
+        </div>
+        <h3
+          className={`mt-[4px] ${typo.headingFontClass} font-semibold text-[#1E3A2E] ${
+            isKa ? 'text-[22px] leading-[1.12] tracking-[-0.015em]' : 'text-[28px] leading-none tracking-[-0.02em]'
+          }`}
+        >
+          {place.name}
+        </h3>
+        <p className={`mt-[10px] text-[#18231C]/75 ${isKa ? 'text-[14px] leading-[1.55]' : 'text-[16px] leading-[1.5]'}`}>{place.note}</p>
+        <div className={`mt-[10px] flex items-center gap-[8px] text-[#1E3A2E]/70 ${isKa ? 'text-[13px]' : 'text-[15px]'}`}>
           {place.mode === 'road' ? <CarIcon /> : <PlaneIcon />}
           {place.route}
         </div>
-        <div className="mb-[12px] mt-[8px] text-[15px] text-[#18231C]/60">
-          {place.days} · from <span className="font-['Outfit',system-ui,sans-serif] text-[22px] font-semibold text-[#1E3A2E]">{place.price}</span>
+        <div className={`mb-[12px] mt-[8px] text-[#18231C]/60 ${isKa ? 'text-[13px]' : 'text-[15px]'}`}>
+          {place.days} · {t.destinations.fromPrefix}
+          <span className="font-['Outfit',system-ui,sans-serif] text-[22px] font-semibold text-[#1E3A2E]">{place.price}</span>
+          {t.destinations.fromSuffix}
         </div>
       </div>
       <div className="relative h-[190px] overflow-hidden rounded-[14px]">
         <div className={`absolute inset-0 ${place.sky}`} />
-        <img src={place.img} alt={place.alt} loading="lazy" style={{ objectPosition: place.pos }} className="absolute inset-0 h-full w-full object-cover" />
+        <img
+          src={place.img}
+          alt={place.alt}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          style={{ objectPosition: place.pos }}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
       </div>
     </a>
   )
@@ -522,8 +489,9 @@ function useGoogleFonts() {
 }
 function Responsive({ desktop, mobile }: { desktop: React.ReactNode; mobile: React.ReactNode }) {
   useGoogleFonts()
+  const { typo } = useLanguage()
   const d = useIsDesktop()
-  return <div className="font-['Figtree',system-ui,sans-serif] text-[#18231C] antialiased">{d ? desktop : mobile}</div>
+  return <div className={`${typo.bodyFontClass} text-[#18231C] antialiased`}>{d ? desktop : mobile}</div>
 }
 function usePrefersReduced() {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -559,9 +527,9 @@ function Reveal({ children, delay = 0, className = '' }: { children: React.React
     </div>
   )
 }
-function Label({ children, light }: { children: React.ReactNode; light?: boolean }) {
+function Label({ children, light, isKa }: { children: React.ReactNode; light?: boolean; isKa?: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-[10px] text-[16px] font-semibold ${light ? 'text-[#F3A26B]' : 'text-[#C35F2D]'}`}>
+    <span className={`inline-flex items-center gap-[10px] font-semibold ${isKa ? 'text-[14px]' : 'text-[16px]'} ${light ? 'text-[#F3A26B]' : 'text-[#C35F2D]'}`}>
       <svg width="22" height="10" viewBox="0 0 22 10" aria-hidden>
         <path d="M1 9 L7 3 L11 6 L15 1 L21 9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
       </svg>
@@ -576,11 +544,13 @@ function Arrow() {
     </svg>
   )
 }
-function ArrowLink({ href, children }: { href: string; children: React.ReactNode }) {
+function ArrowLink({ href, children, isKa }: { href: string; children: React.ReactNode; isKa?: boolean }) {
   return (
     <a
       href={href}
-      className="group inline-flex items-center gap-2 bg-[linear-gradient(currentColor,currentColor)] bg-[length:0%_1px] bg-left-bottom bg-no-repeat pb-[3px] text-[17px] font-medium text-[#EDEEE8] transition-[background-size] duration-500 hover:bg-[length:100%_1px]"
+      className={`group inline-flex items-center gap-2 whitespace-nowrap bg-[linear-gradient(currentColor,currentColor)] bg-[length:0%_1px] bg-left-bottom bg-no-repeat pb-[3px] font-medium text-[#EDEEE8] transition-[background-size] duration-500 hover:bg-[length:100%_1px] ${
+        isKa ? 'text-[15px]' : 'text-[17px]'
+      }`}
     >
       {children}
       <span className="transition-transform duration-500 group-hover:translate-x-[3px]">

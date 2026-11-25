@@ -4,54 +4,50 @@
  * Needs: only React 18 + Tailwind CSS. Fonts load from Google Fonts (no npm package).
  */
 import { useEffect, useRef, useState } from 'react'
+import { useLanguage } from '../../../context/LanguageContext'
+import type { StatItem } from '../../../i18n/translations'
 
 const FONT_URL =
-  'https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600&display=swap'
+  'https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600&family=Noto+Sans+Georgian:wght@400;500;600;700&display=swap'
 
 const FRAME_H = 1080
-
-/** Example figures — replace with your real numbers. */
-const STATS = [
-  { value: '4,800', label: 'Tours on the site', text: 'Each one checked by someone on our team before it goes live.', icon: 'check' as const },
-  { value: '4.9', suffix: 'out of 5', label: 'Average tour rating', text: 'From travellers who finished a tour in the last 12 months.', icon: 'star' as const },
-  { value: '$0', label: 'Booking fee', text: 'The price on the tour page is the price you pay.', icon: 'tag' as const, featured: true },
-  { value: '120', label: 'Countries', text: 'Most trips are in Asia, with more added every season.', icon: 'globe' as const },
-  { value: '24/7', label: 'Help while you travel', text: 'Call or WhatsApp a real person, in Bangla or English.', icon: 'phone' as const },
-  { value: '100%', label: 'Tours with a 3D preview', text: 'Look around the hotel and the route before you pay.', icon: 'cube' as const },
-]
-const STAGES = ["Cox's Bazar", 'Sajek Valley', 'Pokhara', 'Kathmandu', 'Sylhet tea gardens', 'Bali', 'Maldives', 'Kyoto', 'Cappadocia', 'Hunza Valley', 'Phuket', 'Santorini']
 
 export default function Numbers() {
   return <Responsive desktop={<Desktop />} mobile={<Mobile />} />
 }
 
 function Desktop() {
+  const { isKa, t, typo } = useLanguage()
   return (
     <Artboard height={FRAME_H} id="numbers" className="bg-[#F6F8F4]">
       <Topo width={1600} height={FRAME_H} color="#1F3A2E" opacity={0.05} cx={1400} cy={180} rings={20} />
       <div style={at(120, 128)}>
         <Reveal>
-          <Label>Why people book with us</Label>
+          <Label isKa={isKa}>{t.whyUs.label}</Label>
         </Reveal>
       </div>
       <div style={at(120, 178, 900)}>
         <Reveal delay={150}>
-          <h2 className="font-['Outfit',system-ui,sans-serif] text-[92px] font-bold leading-[0.95] tracking-[-0.035em] text-[#1F3A2E]">
-            We do every tour
+          <h2
+            className={`${typo.headingFontClass} font-bold text-[#1F3A2E] ${
+              isKa ? 'text-[68px] leading-[1.06] tracking-[-0.02em]' : 'text-[92px] leading-[0.95] tracking-[-0.035em]'
+            }`}
+          >
+            {t.whyUs.titleLine1}
             <br />
-            <span className="text-[#E9824B]">before we sell it.</span>
+            <span className="text-[#E9824B]">{t.whyUs.titleLine2}</span>
           </h2>
         </Reveal>
       </div>
       <div style={at(1060, 214, 420)}>
         <Reveal delay={250}>
-          <p className="text-[18px] leading-[1.6] text-[#19231C]/70">
-            Someone from our team has stayed at the hotels and walked the routes before a tour goes on the site. The price you see includes everything on the itinerary.
+          <p className={`text-[#19231C]/70 ${isKa ? 'text-[15.5px] leading-[1.6]' : 'text-[18px] leading-[1.6]'}`}>
+            {t.whyUs.description}
           </p>
         </Reveal>
       </div>
-      {STATS.map((st, i) => (
-        <div key={st.label} style={at(120 + (i % 3) * 461, 420 + Math.floor(i / 3) * 252, 437, 228)}>
+      {t.whyUs.stats.map((st, i) => (
+        <div key={st.icon} style={at(120 + (i % 3) * 461, 420 + Math.floor(i / 3) * 252, 437, 228)}>
           <Reveal delay={200 + i * 90} className="h-full">
             <StatCard stat={st} />
           </Reveal>
@@ -59,8 +55,8 @@ function Desktop() {
       ))}
       <div style={at(0, 946, 1600)}>
         <Marquee duration={46} copies={3} reverse>
-          {STAGES.map((s) => (
-            <Stage key={s} label={s} />
+          {t.whyUs.stages.map((s) => (
+            <Stage key={s} label={s} isKa={isKa} />
           ))}
         </Marquee>
       </div>
@@ -68,11 +64,12 @@ function Desktop() {
   )
 }
 
-function StatCard({ stat }: { stat: (typeof STATS)[number] }) {
-  const featured = 'featured' in stat && stat.featured
+function StatCard({ stat }: { stat: StatItem }) {
+  const { isKa } = useLanguage()
+  const featured = Boolean(stat.featured)
   return (
     <div
-      className={`group flex h-full flex-col justify-between gap-[22px] rounded-[26px] p-[28px] transition-[transform,box-shadow] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-[4px] ${
+      className={`group flex h-full flex-col justify-between gap-[18px] rounded-[26px] p-[28px] transition-[transform,box-shadow] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-[4px] ${
         featured
           ? 'bg-[#1F3A2E] text-[#ECEEE8] shadow-[0_30px_50px_-30px_rgba(30,58,47,.7)]'
           : 'border border-[#1F3A2E]/10 bg-white text-[#1F3A2E] shadow-[0_1px_2px_rgba(30,58,47,.05)] hover:shadow-[0_30px_50px_-34px_rgba(30,58,47,.45)]'
@@ -83,22 +80,32 @@ function StatCard({ stat }: { stat: (typeof STATS)[number] }) {
           <span className="font-['Outfit',system-ui,sans-serif] text-[68px] font-bold leading-[0.9] tracking-[-0.04em] [font-variant-numeric:tabular-nums]">
             <CountUp value={stat.value} />
           </span>
-          {'suffix' in stat && <span className={`text-[17px] ${featured ? 'text-[#ECEEE8]/60' : 'text-[#19231C]/50'}`}>{stat.suffix}</span>}
+          {stat.suffix && (
+            <span className={`${isKa ? 'text-[14px]' : 'text-[17px]'} ${featured ? 'text-[#ECEEE8]/60' : 'text-[#19231C]/50'}`}>
+              {stat.suffix}
+            </span>
+          )}
         </div>
         <span className={`flex h-[44px] w-[44px] items-center justify-center rounded-full ${featured ? 'bg-[#E9824B] text-[#14261E]' : 'bg-[#E9824B]/[0.12] text-[#C25F2C]'}`}>
           <StatIcon kind={stat.icon} />
         </span>
       </div>
       <div>
-        <div className="text-[19px] font-semibold">{stat.label}</div>
-        <p className={`mt-[6px] text-[16px] leading-[1.5] ${featured ? 'text-[#ECEEE8]/70' : 'text-[#19231C]/65'}`}>{stat.text}</p>
+        <div className={`font-semibold ${isKa ? 'text-[16.5px]' : 'text-[19px]'}`}>{stat.label}</div>
+        <p className={`mt-[6px] ${isKa ? 'text-[13.5px] leading-[1.55]' : 'text-[16px] leading-[1.5]'} ${featured ? 'text-[#ECEEE8]/70' : 'text-[#19231C]/65'}`}>
+          {stat.text}
+        </p>
       </div>
     </div>
   )
 }
-function Stage({ label }: { label: string }) {
+function Stage({ label, isKa }: { label: string; isKa?: boolean }) {
   return (
-    <div className="mr-[14px] flex h-[58px] shrink-0 items-center gap-[12px] rounded-full border-[1.5px] border-[#1F3A2E]/15 bg-[#F6F8F4] px-[22px] text-[17px] font-medium text-[#1F3A2E] transition-colors duration-300 hover:border-[#1F3A2E] hover:bg-[#1F3A2E] hover:text-[#ECEEE8]">
+    <div
+      className={`mr-[14px] flex h-[58px] shrink-0 items-center gap-[12px] rounded-full border-[1.5px] border-[#1F3A2E]/15 bg-[#F6F8F4] px-[22px] font-medium text-[#1F3A2E] transition-colors duration-300 hover:border-[#1F3A2E] hover:bg-[#1F3A2E] hover:text-[#ECEEE8] ${
+        isKa ? 'text-[15px]' : 'text-[17px]'
+      }`}
+    >
       <svg width="14" height="16" viewBox="0 0 14 16" aria-hidden>
         <path d="M1.5 6.2a5.5 5.5 0 0 1 11 0c0 4.3-5.5 9-5.5 9s-5.5-4.7-5.5-9Z" fill="#E9824B" />
         <circle cx="7" cy="6.2" r="1.9" fill="#F6F8F4" />
@@ -132,26 +139,31 @@ function StatIcon({ kind }: { kind: 'check' | 'star' | 'tag' | 'globe' | 'phone'
 }
 
 function Mobile() {
+  const { isKa, t, typo } = useLanguage()
   return (
     <section id="numbers" className="relative overflow-hidden bg-[#F6F8F4] py-20">
       <Topo width={390} height={1600} color="#1F3A2E" opacity={0.05} cx={340} cy={120} rings={14} />
       <div className="relative px-5">
         <Reveal>
-          <Label>Why people book with us</Label>
+          <Label isKa={isKa}>{t.whyUs.label}</Label>
         </Reveal>
         <Reveal delay={150}>
-          <h2 className="mt-5 font-['Outfit',system-ui,sans-serif] text-[48px] font-bold leading-[0.95] tracking-[-0.035em] text-[#1F3A2E]">
-            We do every tour <span className="text-[#E9824B]">before we sell it.</span>
+          <h2
+            className={`mt-5 ${typo.headingFontClass} font-bold text-[#1F3A2E] ${
+              isKa ? 'text-[36px] leading-[1.08] tracking-[-0.02em]' : 'text-[48px] leading-[0.95] tracking-[-0.035em]'
+            }`}
+          >
+            {t.whyUs.titleLine1} <span className="text-[#E9824B]">{t.whyUs.titleLine2}</span>
           </h2>
         </Reveal>
         <Reveal delay={250}>
-          <p className="mt-5 text-[16px] leading-[1.6] text-[#19231C]/70">
-            Someone from our team has stayed at the hotels and walked the routes before a tour goes on the site. The price you see includes everything on the itinerary.
+          <p className={`mt-5 text-[#19231C]/70 ${isKa ? 'text-[14.5px] leading-[1.6]' : 'text-[16px] leading-[1.6]'}`}>
+            {t.whyUs.description}
           </p>
         </Reveal>
         <div className="mt-10 flex flex-col gap-3">
-          {STATS.map((st, i) => (
-            <Reveal key={st.label} delay={i * 70}>
+          {t.whyUs.stats.map((st, i) => (
+            <Reveal key={st.icon} delay={i * 70}>
               <StatCard stat={st} />
             </Reveal>
           ))}
@@ -159,8 +171,8 @@ function Mobile() {
       </div>
       <div className="relative mt-8">
         <Marquee duration={34} copies={3} reverse>
-          {STAGES.map((s) => (
-            <Stage key={s} label={s} />
+          {t.whyUs.stages.map((s) => (
+            <Stage key={s} label={s} isKa={isKa} />
           ))}
         </Marquee>
       </div>
@@ -211,8 +223,9 @@ function useGoogleFonts() {
 }
 function Responsive({ desktop, mobile }: { desktop: React.ReactNode; mobile: React.ReactNode }) {
   useGoogleFonts()
+  const { typo } = useLanguage()
   const d = useIsDesktop()
-  return <div className="font-['Figtree',system-ui,sans-serif] text-[#19231C] antialiased">{d ? desktop : mobile}</div>
+  return <div className={`${typo.bodyFontClass} text-[#19231C] antialiased`}>{d ? desktop : mobile}</div>
 }
 function usePrefersReduced() {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -311,9 +324,9 @@ function Marquee({ children, duration = 40, copies = 2, reverse = false }: { chi
     </div>
   )
 }
-function Label({ children, light }: { children: React.ReactNode; light?: boolean }) {
+function Label({ children, light, isKa }: { children: React.ReactNode; light?: boolean; isKa?: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-[10px] text-[16px] font-semibold ${light ? 'text-[#F2A36A]' : 'text-[#C25F2C]'}`}>
+    <span className={`inline-flex items-center gap-[10px] font-semibold ${isKa ? 'text-[14px]' : 'text-[16px]'} ${light ? 'text-[#F2A36A]' : 'text-[#C25F2C]'}`}>
       <svg width="22" height="10" viewBox="0 0 22 10" aria-hidden>
         <path d="M1 9 L7 3 L11 6 L15 1 L21 9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
       </svg>

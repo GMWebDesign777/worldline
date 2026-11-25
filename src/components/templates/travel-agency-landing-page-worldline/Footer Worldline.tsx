@@ -4,38 +4,37 @@
  * Needs: only React 18 + Tailwind CSS. Fonts load from Google Fonts (no npm package).
  */
 import { useEffect, useRef, useState } from 'react'
+import { useLanguage } from '../../../context/LanguageContext'
 
 const FONT_URL =
-  'https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600&display=swap'
+  'https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600&family=Noto+Sans+Georgian:wght@400;500;600;700&display=swap'
 
 const FRAME_H = 1110
-
-const IDEAS = ['Bali, 6 days in May', "Cox's Bazar, a long weekend", 'Kyoto in cherry-blossom season', 'Sajek Valley above the clouds']
-const COLUMNS = [
-  { title: 'Explore', links: ['Destinations', 'Tours', 'Deals', 'Gift cards'] },
-  { title: 'Company', links: ['About us', 'Local partners', 'Careers', 'Journal'] },
-  { title: 'Support', links: ['Help centre', 'Cancellations', 'Travel insurance', 'Contact'] },
-]
 
 export default function Closing() {
   return <Responsive desktop={<Desktop />} mobile={<Mobile />} />
 }
 
 function Desktop() {
+  const { isKa, t, typo } = useLanguage()
   return (
     <Artboard height={FRAME_H} id="start" className="bg-[#ECEEE8]">
       <Topo width={1600} height={700} color="#1F3A2E" opacity={0.07} cx={800} cy={330} rings={24} />
       <div style={at(0, 128, 1600)} className="text-center">
         <Reveal>
-          <Label>Start planning</Label>
+          <Label isKa={isKa}>{t.footer.label}</Label>
         </Reveal>
       </div>
-      <div style={at(200, 182, 1200)} className="text-center">
+      <div style={at(160, 182, 1280)} className="text-center">
         <Reveal delay={200}>
-          <h2 className="font-['Outfit',system-ui,sans-serif] text-[116px] font-bold leading-[0.92] tracking-[-0.045em] text-[#1F3A2E]">
-            Where do you
+          <h2
+            className={`${typo.headingFontClass} font-bold text-[#1F3A2E] ${
+              isKa ? 'text-[84px] leading-[1.05] tracking-[-0.02em]' : 'text-[116px] leading-[0.92] tracking-[-0.045em]'
+            }`}
+          >
+            {t.footer.titleLine1}
             <br />
-            <span className="text-[#E9824B]">want to go next?</span>
+            <span className="text-[#E9824B]">{t.footer.titleLine2}</span>
           </h2>
         </Reveal>
       </div>
@@ -44,13 +43,13 @@ function Desktop() {
           <PromptField />
         </Reveal>
       </div>
-      <div style={at(0, 560, 1600)} className="flex justify-center gap-[28px] text-[15px] text-[#1F3A2E]/70">
+      <div style={at(0, 560, 1600)} className={`flex justify-center gap-[28px] text-[#1F3A2E]/70 ${isKa ? 'text-[13.5px]' : 'text-[15px]'}`}>
         <Reveal delay={400}>
           <div className="flex gap-[28px]">
-            {['No booking fee', 'Prices in US dollars', 'Free date changes up to 7 days before'].map((t) => (
-              <span key={t} className="flex items-center gap-2">
+            {t.footer.trustItems.map((item) => (
+              <span key={item} className="flex items-center gap-2">
                 <Check />
-                {t}
+                {item}
               </span>
             ))}
           </div>
@@ -64,35 +63,57 @@ function Desktop() {
 }
 
 function Footer() {
+  const { isKa, t } = useLanguage()
+  const [email, setEmail] = useState('')
+  const [subscribed, setSubscribed] = useState(false)
+  const handleSubscribe = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email.trim()) return
+    setSubscribed(true)
+    setEmail('')
+  }
   return (
     <footer className="relative flex h-full flex-col overflow-hidden rounded-[40px] bg-[#1F3A2E] px-[80px] pb-[34px] pt-[56px] text-[#ECEEE8]">
       <Topo width={1520} height={370} color="#ECEEE8" opacity={0.06} cx={1300} cy={380} rings={18} />
       <div className="relative flex justify-between">
-        <div className="w-[420px]">
+        <div className="w-[440px]">
           <Logo light />
-          <div className="mt-[16px] text-[15px] text-[#F3A36A]">DHAKA · 23.81° N · 90.41° E</div>
-          <p className="mt-[12px] text-[16px] leading-[1.55] text-[#ECEEE8]/65">
-            Small-group tours with local guides, and a 3D preview of every place before you book. Our office is in Dhaka.
+          <div className={`mt-[16px] text-[#F3A36A] ${isKa ? 'text-[13.5px]' : 'text-[15px]'}`}>{t.footer.coords}</div>
+          <p className={`mt-[12px] text-[#ECEEE8]/65 ${isKa ? 'text-[14px] leading-[1.6]' : 'text-[16px] leading-[1.55]'}`}>
+            {t.footer.description}
           </p>
-          <form onSubmit={(e) => e.preventDefault()} className="mt-[26px] flex h-[52px] w-[400px] items-center rounded-full border border-[#ECEEE8]/20 bg-[#14261E]/40 pl-[20px] pr-[6px]">
+          <form onSubmit={handleSubscribe} className="mt-[26px] flex h-[52px] w-[420px] items-center rounded-full border border-[#ECEEE8]/20 bg-[#14261E]/40 pl-[20px] pr-[6px]">
             <input
-              aria-label="Email for travel deals"
-              placeholder="Email, for one deals email a month"
-              className="min-w-0 flex-1 bg-transparent text-[15px] text-[#ECEEE8] outline-none placeholder:text-[#ECEEE8]/40"
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                if (subscribed) setSubscribed(false)
+              }}
+              aria-label={t.footer.emailAria}
+              placeholder={t.footer.emailPlaceholder}
+              className={`min-w-0 flex-1 bg-transparent text-[#ECEEE8] outline-none placeholder:text-[#ECEEE8]/40 ${
+                isKa ? 'text-[13px]' : 'text-[15px]'
+              }`}
             />
-            <button type="submit" className="h-[40px] rounded-full bg-[#E9824B] px-[18px] text-[15px] font-semibold text-[#14261E] transition-colors duration-300 hover:bg-[#ECEEE8]">
-              Subscribe
+            <button
+              type="submit"
+              className={`h-[40px] shrink-0 cursor-pointer whitespace-nowrap rounded-full bg-[#E9824B] px-[18px] font-semibold text-[#14261E] transition-colors duration-300 hover:bg-[#ECEEE8] ${
+                isKa ? 'text-[13px]' : 'text-[15px]'
+              }`}
+            >
+              {subscribed ? t.footer.subscribed : t.footer.subscribe}
             </button>
           </form>
         </div>
-        <div className="flex gap-[90px]">
-          {COLUMNS.map((c) => (
+        <div className="flex gap-[84px]">
+          {t.footer.columns.map((c) => (
             <div key={c.title}>
-              <div className="text-[15px] text-[#ECEEE8]/45">{c.title}</div>
+              <div className={`text-[#ECEEE8]/45 ${isKa ? 'text-[13.5px]' : 'text-[15px]'}`}>{c.title}</div>
               <ul className="mt-[18px] flex flex-col gap-[12px]">
                 {c.links.map((l) => (
                   <li key={l}>
-                    <UnderlineLink href="#start">{l}</UnderlineLink>
+                    <UnderlineLink href="#start" isKa={isKa}>{l}</UnderlineLink>
                   </li>
                 ))}
               </ul>
@@ -100,15 +121,12 @@ function Footer() {
           ))}
         </div>
       </div>
-      <div className="relative mt-auto flex items-center justify-between border-t border-[#ECEEE8]/12 pt-[26px] text-[15px] text-[#ECEEE8]/55">
-        <span>© 2026 Worldline Trips</span>
-        <span className="flex items-center gap-[10px]">
-          Secure payments in
-          <span className="rounded-full bg-[#E9824B] px-[10px] py-[3px] font-semibold text-[#14261E]">USD $</span>
-        </span>
+      <div className={`relative mt-auto flex items-center justify-between border-t border-[#ECEEE8]/12 pt-[26px] text-[#ECEEE8]/55 ${isKa ? 'text-[13.5px]' : 'text-[15px]'}`}>
+        <span>{t.footer.copyright}</span>
+        <span className="text-[#ECEEE8]/80">{t.footer.tagline}</span>
         <span className="flex gap-[24px]">
-          <UnderlineLink href="#start">Privacy</UnderlineLink>
-          <UnderlineLink href="#start">Terms</UnderlineLink>
+          <UnderlineLink href="#start" isKa={isKa}>{t.footer.privacy}</UnderlineLink>
+          <UnderlineLink href="#start" isKa={isKa}>{t.footer.terms}</UnderlineLink>
         </span>
       </div>
     </footer>
@@ -116,75 +134,99 @@ function Footer() {
 }
 
 function PromptField() {
+  const { isKa, t } = useLanguage()
   const [i, setI] = useState(0)
   const [value, setValue] = useState('')
   useEffect(() => {
-    const id = setInterval(() => setI((v) => (v + 1) % IDEAS.length), 3200)
+    const id = setInterval(() => setI((v) => (v + 1) % t.footer.ideas.length), 3200)
     return () => clearInterval(id)
-  }, [])
+  }, [t.footer.ideas.length])
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    document.getElementById('destinations')?.scrollIntoView({ behavior: 'smooth' })
+  }
   return (
     <form
-      onSubmit={(e) => e.preventDefault()}
+      onSubmit={handleSearch}
       className="flex h-[84px] items-center rounded-full border-[1.5px] border-[#1F3A2E]/15 bg-[#F6F8F4] pl-[28px] pr-[12px] shadow-[0_30px_60px_-30px_rgba(30,58,47,.5)] transition-colors duration-500 focus-within:border-[#E9824B]"
     >
       <Pin />
       <input
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder={`Try “${IDEAS[i]}”`}
-        aria-label="Where do you want to go?"
-        className="ml-[14px] min-w-0 flex-1 bg-transparent text-[19px] text-[#18231C] outline-none placeholder:text-[#18231C]/40"
+        placeholder={`${t.footer.tryPrefix}${t.footer.ideas[i % t.footer.ideas.length]}${t.footer.trySuffix}`}
+        aria-label={t.footer.searchAria}
+        className={`ml-[14px] min-w-0 flex-1 bg-transparent text-[#18231C] outline-none placeholder:text-[#18231C]/40 ${
+          isKa ? 'text-[16px]' : 'text-[19px]'
+        }`}
       />
-      <Button>Search tours</Button>
+      <Button isKa={isKa}>{t.footer.searchButton}</Button>
     </form>
   )
 }
 
 function Mobile() {
+  const { isKa, t, typo } = useLanguage()
+  const [value, setValue] = useState('')
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    document.getElementById('destinations')?.scrollIntoView({ behavior: 'smooth' })
+  }
   return (
     <section id="start" className="relative overflow-hidden bg-[#ECEEE8] pb-3 pt-20">
       <Topo width={390} height={600} color="#1F3A2E" opacity={0.07} cx={195} cy={200} rings={14} />
       <div className="relative px-5 text-center">
         <Reveal>
-          <Label>Start planning</Label>
+          <Label isKa={isKa}>{t.footer.label}</Label>
         </Reveal>
         <Reveal delay={200}>
-          <h2 className="mt-5 font-['Outfit',system-ui,sans-serif] text-[52px] font-bold leading-[0.94] tracking-[-0.04em] text-[#1F3A2E]">
-            Where do you <span className="text-[#E9824B]">want to go next?</span>
+          <h2
+            className={`mt-5 ${typo.headingFontClass} font-bold text-[#1F3A2E] ${
+              isKa ? 'text-[38px] leading-[1.08] tracking-[-0.02em]' : 'text-[52px] leading-[0.94] tracking-[-0.04em]'
+            }`}
+          >
+            {t.footer.titleLine1} <span className="text-[#E9824B]">{t.footer.titleLine2}</span>
           </h2>
         </Reveal>
         <Reveal delay={300}>
-          <form onSubmit={(e) => e.preventDefault()} className="mt-8 flex flex-col gap-3">
+          <form onSubmit={handleSearch} className="mt-8 flex flex-col gap-3">
             <input
-              placeholder={`Try “${IDEAS[0]}”`}
-              aria-label="Where do you want to go?"
-              className="h-[56px] rounded-full border-[1.5px] border-[#1F3A2E]/15 bg-[#F6F8F4] px-5 text-[16px] outline-none placeholder:text-[#18231C]/40 focus:border-[#E9824B]"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={`${t.footer.tryPrefix}${t.footer.ideas[0]}${t.footer.trySuffix}`}
+              aria-label={t.footer.searchAria}
+              className={`h-[56px] rounded-full border-[1.5px] border-[#1F3A2E]/15 bg-[#F6F8F4] px-5 outline-none placeholder:text-[#18231C]/40 focus:border-[#E9824B] ${
+                isKa ? 'text-[14px]' : 'text-[16px]'
+              }`}
             />
-            <Button full>Search tours</Button>
+            <Button full isKa={isKa}>{t.footer.searchButton}</Button>
           </form>
-          <p className="mt-4 text-[15px] text-[#1F3A2E]/65">No booking fees · Prices in USD</p>
+          <p className={`mt-4 text-[#1F3A2E]/65 ${isKa ? 'text-[13px]' : 'text-[15px]'}`}>{t.footer.mobileTrust}</p>
         </Reveal>
       </div>
       <footer className="relative mx-3 mt-14 rounded-[32px] bg-[#1F3A2E] px-6 pb-8 pt-10 text-[#ECEEE8]">
         <Logo light />
-        <p className="mt-4 text-[15px] leading-[1.55] text-[#ECEEE8]/65">
-          Small-group tours with local guides. Our office is in Dhaka.
+        <div className={`mt-3 text-[#F3A36A] ${isKa ? 'text-[13px]' : 'text-[14px]'}`}>{t.footer.coords}</div>
+        <p className={`mt-3 text-[#ECEEE8]/65 ${isKa ? 'text-[13.5px] leading-[1.6]' : 'text-[15px] leading-[1.55]'}`}>
+          {t.footer.mobileDescription}
         </p>
         <div className="mt-8 grid grid-cols-2 gap-6">
-          {COLUMNS.slice(0, 2).map((c) => (
+          {t.footer.columns.slice(0, 2).map((c) => (
             <div key={c.title}>
-              <div className="text-[15px] text-[#ECEEE8]/45">{c.title}</div>
+              <div className={`text-[#ECEEE8]/45 ${isKa ? 'text-[13px]' : 'text-[15px]'}`}>{c.title}</div>
               <ul className="mt-3 flex flex-col gap-2">
                 {c.links.map((l) => (
                   <li key={l}>
-                    <UnderlineLink href="#start">{l}</UnderlineLink>
+                    <UnderlineLink href="#start" isKa={isKa}>{l}</UnderlineLink>
                   </li>
                 ))}
               </ul>
             </div>
           ))}
         </div>
-        <div className="mt-8 border-t border-[#ECEEE8]/12 pt-5 text-[15px] text-[#ECEEE8]/55">© 2026 Worldline Trips · Payments in USD $</div>
+        <div className={`mt-8 border-t border-[#ECEEE8]/12 pt-5 text-[#ECEEE8]/55 ${isKa ? 'text-[13px]' : 'text-[15px]'}`}>
+          {t.footer.copyright} · {t.footer.tagline}
+        </div>
       </footer>
     </section>
   )
@@ -233,8 +275,9 @@ function useGoogleFonts() {
 }
 function Responsive({ desktop, mobile }: { desktop: React.ReactNode; mobile: React.ReactNode }) {
   useGoogleFonts()
+  const { typo } = useLanguage()
   const d = useIsDesktop()
-  return <div className="font-['Figtree',system-ui,sans-serif] text-[#18231C] antialiased">{d ? desktop : mobile}</div>
+  return <div className={`${typo.bodyFontClass} text-[#18231C] antialiased`}>{d ? desktop : mobile}</div>
 }
 function usePrefersReduced() {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -270,9 +313,9 @@ function Reveal({ children, delay = 0, className = '' }: { children: React.React
     </div>
   )
 }
-function Label({ children, light }: { children: React.ReactNode; light?: boolean }) {
+function Label({ children, light, isKa }: { children: React.ReactNode; light?: boolean; isKa?: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-[10px] text-[16px] font-semibold ${light ? 'text-[#F3A36A]' : 'text-[#C25F2C]'}`}>
+    <span className={`inline-flex items-center gap-[10px] font-semibold ${isKa ? 'text-[14px]' : 'text-[16px]'} ${light ? 'text-[#F3A36A]' : 'text-[#C25F2C]'}`}>
       <svg width="22" height="10" viewBox="0 0 22 10" aria-hidden>
         <path d="M1 9 L7 3 L11 6 L15 1 L21 9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
       </svg>
@@ -280,16 +323,16 @@ function Label({ children, light }: { children: React.ReactNode; light?: boolean
     </span>
   )
 }
-function Button({ children, full }: { children: React.ReactNode; full?: boolean }) {
+function Button({ children, full, isKa }: { children: React.ReactNode; full?: boolean; isKa?: boolean }) {
   return (
     <button
       type="submit"
-      className={`group relative inline-flex h-[58px] items-center justify-center overflow-hidden rounded-full bg-[#E9824B] px-[28px] text-[16px] font-semibold text-[#14261E] transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-[3px] hover:shadow-[0_14px_30px_-12px_rgba(30,58,47,.6)] active:scale-[0.97] ${
-        full ? 'w-full' : ''
-      }`}
+      className={`group relative inline-flex h-[58px] cursor-pointer items-center justify-center whitespace-nowrap overflow-hidden rounded-full bg-[#E9824B] font-semibold text-[#14261E] transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-[3px] hover:shadow-[0_14px_30px_-12px_rgba(30,58,47,.6)] active:scale-[0.97] ${
+        isKa ? 'px-[24px] text-[14px]' : 'px-[28px] text-[16px]'
+      } ${full ? 'w-full' : ''}`}
     >
       <span className="absolute inset-0 origin-left scale-x-0 bg-[#1F3A2E] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100" />
-      <span className="relative block overflow-hidden transition-colors duration-500 group-hover:text-[#ECEEE8]">
+      <span className="relative block overflow-hidden leading-[1.3] transition-colors duration-500 group-hover:text-[#ECEEE8]">
         <span className="flex items-center gap-2 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-full">
           {children}
           <Arrow />
@@ -325,11 +368,13 @@ function Check() {
     </svg>
   )
 }
-function UnderlineLink({ href, children }: { href: string; children: React.ReactNode }) {
+function UnderlineLink({ href, children, isKa }: { href: string; children: React.ReactNode; isKa?: boolean }) {
   return (
     <a
       href={href}
-      className="bg-[linear-gradient(currentColor,currentColor)] bg-[length:0%_1px] bg-left-bottom bg-no-repeat pb-[2px] text-[15px] opacity-75 transition-[background-size,opacity] duration-500 hover:bg-[length:100%_1px] hover:opacity-100"
+      className={`whitespace-nowrap bg-[linear-gradient(currentColor,currentColor)] bg-[length:0%_1px] bg-left-bottom bg-no-repeat pb-[2px] opacity-75 transition-[background-size,opacity] duration-500 hover:bg-[length:100%_1px] hover:opacity-100 ${
+        isKa ? 'text-[13.5px]' : 'text-[15px]'
+      }`}
     >
       {children}
     </a>

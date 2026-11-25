@@ -1,3 +1,4 @@
+import { LanguageProvider } from "./context/LanguageContext";
 import HeaderWorldline from "./components/templates/travel-agency-landing-page-worldline/Header Worldline";
 import HowItWorksWorldline from "./components/templates/travel-agency-landing-page-worldline/How It Works Worldline";
 import DestinationsWorldline from "./components/templates/travel-agency-landing-page-worldline/Destinations Worldline";
@@ -6,12 +7,14 @@ import FooterWorldline from "./components/templates/travel-agency-landing-page-w
 
 export default function Home() {
   return (
-    <main className="min-h-screen">
-      <HeaderWorldline />
-      <HowItWorksWorldline />
-      <DestinationsWorldline />
-      <WhyUsWorldline />
-      <FooterWorldline />
-    </main>
+    <LanguageProvider>
+      <main className="min-h-screen overflow-x-clip">
+        <HeaderWorldline />
+        <HowItWorksWorldline />
+        <DestinationsWorldline />
+        <WhyUsWorldline />
+        <FooterWorldline />
+      </main>
+    </LanguageProvider>
   );
 }

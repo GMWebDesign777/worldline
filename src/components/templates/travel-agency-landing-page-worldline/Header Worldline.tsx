@@ -9,36 +9,21 @@
  * The 3D engine (three.js r160) is loaded at runtime with a <script> tag from jsDelivr (unpkg as backup) — nothing to install.
  */
 import { useEffect, useRef, useState } from 'react'
+import { useLanguage } from '../../../context/LanguageContext'
+import { DESTINATION_IMAGES } from '../../../i18n/translations'
 
 const FONT_URL =
-  'https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600&family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600&display=swap'
+  'https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600&family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600&family=Noto+Sans+Georgian:wght@400;500;600;700&display=swap'
 /** three.js r160 (plain script build), tried in order until one loads. */
 const THREE_SOURCES = [
   'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js',
   'https://unpkg.com/three@0.160.0/build/three.min.js',
 ]
-/** Shown instead of the 3D film if it cannot run (no WebGL, or the script is blocked).
- *  Photo: "The Annapurna range from Pokhara" by Jmhullot, CC BY 3.0, Wikimedia Commons. */
-const FALLBACK_IMG =
-  'https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f3/The_Annapurna_range_from_Pokhara.jpg/1280px-The_Annapurna_range_from_Pokhara.jpg'
+/** Shown instead of the 3D film if it cannot run (no WebGL, or the script is blocked). */
+const FALLBACK_IMG = DESTINATION_IMAGES.brienz
 
 /** The search typed on the laptop. */
-const QUERY = 'Pokhara, Nepal · 5 days in March'
-
-/** Sample search results shown after the dive (example prices, USD per person). */
-const TOURS = [
-  { name: 'Phewa Lake & Sarangkot Sunrise', days: '5 days', detail: 'Lakeside hotel · boat ride · guide', price: '$449', rating: '4.9' },
-  { name: 'Annapurna Foothills Trek', days: '7 days', detail: 'Ghandruk village · tea houses · porter', price: '$629', rating: '4.8' },
-  { name: 'Pokhara Slow Escape', days: '4 days', detail: 'Lake-view suite · paragliding add-on', price: '$369', rating: '4.7' },
-  { name: 'Kathmandu + Pokhara Classic', days: '6 days', detail: 'Heritage walks · flights included', price: '$689', rating: '4.8' },
-]
-
-const NAV_LINKS = [
-  { label: 'Destinations', href: '#destinations' },
-  { label: 'How it works', href: '#how' },
-  { label: 'Why us', href: '#numbers' },
-  { label: 'Deals', href: '#start', dot: true },
-]
+const QUERY = 'Lake Brienz, Switzerland · 5 days in May'
 
 /** Scroll-timeline (in "film seconds"). The whole hero is one scroll-scrubbed film. */
 const DURATION = 18
@@ -59,6 +44,7 @@ const T = {
 /* ------------------------------------------------------------------ */
 export default function Hero() {
   useGoogleFonts()
+  const { isKa, t, typo } = useLanguage()
   const isDesktop = useIsDesktop()
   const sectionRef = useRef<HTMLElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -76,12 +62,48 @@ export default function Hero() {
     if (!canvas || !section) return
     let engine: Engine | null = null
     let raf = 0
+    let frameTimer = 0
     let alive = true
     let shown = 0
     let tSmooth = 0
     let last = performance.now()
     const params = new URLSearchParams(location.search)
     const forcedT = params.has('t') ? parseFloat(params.get('t') || '0') : null
+
+    const isSoftwareGl = (() => {
+      const probe = document.createElement('canvas')
+      const gl = probe.getContext('webgl2') || probe.getContext('webgl')
+      if (!gl) return true
+      const ext = gl.getExtension('WEBGL_debug_renderer_info')
+      const param = ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER
+      const gpu = String(gl.getParameter(param) || '')
+      gl.getExtension('WEBGL_lose_context')?.loseContext()
+      return /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu)
+    })()
+
+    const afterDraw = (cb: () => void) => {
+      const gl = engine?.gl as WebGL2RenderingContext | undefined
+      if (!gl || typeof gl.fenceSync !== 'function') {
+        frameTimer = window.setTimeout(cb, 80)
+        return
+      }
+      const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0)
+      gl.flush()
+      const poll = () => {
+        if (!alive) {
+          if (sync) gl.deleteSync(sync)
+          return
+        }
+        const state = sync && gl.getSyncParameter(sync, gl.SYNC_STATUS)
+        if (state === gl.UNSIGNALED) {
+          frameTimer = window.setTimeout(poll, 5)
+        } else {
+          if (sync) gl.deleteSync(sync)
+          frameTimer = window.setTimeout(cb, 80)
+        }
+      }
+      frameTimer = window.setTimeout(poll, 5)
+    }
 
     const setStyle = (el: HTMLElement | null, o: number, y = 0) => {
       if (!el) return
@@ -103,7 +125,8 @@ export default function Hero() {
       const t = tSmooth
 
       // only render while the hero is (partly) on screen
-      if (rect.bottom > 0 && rect.top < window.innerHeight) {
+      const onScreen = rect.bottom > 0 && rect.top < window.innerHeight
+      if (onScreen) {
         engine.render(t, now / 1000, dt)
         shown = Math.min(1, shown + dt * 1.2)
         engine.setFade(forcedT !== null ? 1 : shown)
@@ -120,13 +143,19 @@ export default function Hero() {
       const o = seg(t, 13.0, 14.4)
       setStyle(outroRef.current, o, 30 * (1 - o))
       if (barRef.current) barRef.current.style.transform = `scaleX(${t / DURATION})`
-      raf = requestAnimationFrame(loop)
+      if (isSoftwareGl && onScreen) {
+        afterDraw(() => {
+          if (alive) raf = requestAnimationFrame(loop)
+        })
+      } else {
+        raf = requestAnimationFrame(loop)
+      }
     }
 
     loadThree()
       .then((THREE) => {
         if (!alive) return
-        engine = createEngine(THREE, canvas, { query: QUERY })
+        engine = createEngine(THREE, canvas, { query: QUERY, isSoftwareGl })
         const onResize = () => engine?.resize()
         window.addEventListener('resize', onResize)
         engine.resize()
@@ -144,6 +173,7 @@ export default function Hero() {
     return () => {
       alive = false
       cancelAnimationFrame(raf)
+      clearTimeout(frameTimer)
       cleanupResize()
       engine?.dispose()
     }
@@ -154,7 +184,7 @@ export default function Hero() {
       <Navbar isDesktop={isDesktop} />
       <section
         ref={sectionRef}
-        className={`relative ${status === 'error' ? 'h-screen' : 'h-[720vh]'} bg-[#0e0c0a] font-['Figtree',system-ui,sans-serif] text-[#F5EEE6] antialiased`}
+        className={`relative ${status === 'error' ? 'h-screen' : 'h-[720vh]'} bg-[#0e0c0a] ${typo.bodyFontClass} text-[#F5EEE6] antialiased`}
       >
         <div className="sticky top-0 h-screen w-full overflow-hidden">
           {/* poster shown while the 3D scene loads */}
@@ -163,10 +193,10 @@ export default function Hero() {
               status === 'ready' ? 'opacity-0' : 'opacity-100'
             }`}
           />
-          <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+          <canvas ref={canvasRef} data-testid="hero-canvas" className="absolute inset-0 h-full w-full" />
           {status === 'error' && (
             <div className="absolute inset-0">
-              <img src={FALLBACK_IMG} alt="Phewa Lake and the Annapurna range, Pokhara" className="h-full w-full object-cover" />
+              <img src={FALLBACK_IMG} alt={t.hero.fallbackAlt} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
               <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(14,12,10,.75)_0%,rgba(14,12,10,.35)_55%,rgba(14,12,10,.1)_100%)]" />
             </div>
           )}
@@ -181,55 +211,78 @@ export default function Hero() {
                 : 'absolute bottom-[14vh] left-5 right-5'
             }
           >
-            <Badge>Small-group tours from Dhaka</Badge>
+            <Badge isKa={isKa}>{t.hero.badge}</Badge>
             <h1
-              className={`mt-5 font-['Outfit',system-ui,sans-serif] font-bold leading-[0.92] tracking-[-0.045em] ${
-                isDesktop ? 'text-[clamp(52px,5.6vw,96px)]' : 'text-[50px]'
+              className={`mt-5 ${typo.headingFontClass} font-bold ${
+                isKa
+                  ? isDesktop
+                    ? 'text-[clamp(42px,4.5vw,78px)] leading-[1.06] tracking-[-0.02em]'
+                    : 'text-[38px] leading-[1.08] tracking-[-0.02em]'
+                  : isDesktop
+                    ? 'text-[clamp(52px,5.6vw,96px)] leading-[0.92] tracking-[-0.045em]'
+                    : 'text-[50px] leading-[0.92] tracking-[-0.045em]'
               }`}
             >
-              Know the view
+              {t.hero.titleLine1}
               <br />
-              <span className="text-[#F3A26B]">before you book.</span>
+              <span className="text-[#F3A26B]">{t.hero.titleLine2}</span>
             </h1>
-            <p className={`mt-5 max-w-[520px] text-[#F5EEE6]/80 ${isDesktop ? 'text-[19px] leading-[1.5]' : 'text-[16px] leading-[1.5]'}`}>
-              Every tour comes with a 3D preview of the actual place, so you can check the hotel view, the walk to the lake and the light at sunset before you pay.
+            <p
+              className={`mt-5 max-w-[520px] text-[#F5EEE6]/80 ${
+                isKa
+                  ? isDesktop
+                    ? 'text-[16.5px] leading-[1.55]'
+                    : 'text-[14.5px] leading-[1.55]'
+                  : isDesktop
+                    ? 'text-[19px] leading-[1.5]'
+                    : 'text-[16px] leading-[1.5]'
+              }`}
+            >
+              {t.hero.description}
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button href="#start" variant="light">Find a tour</Button>
-              <Button href="#destinations" variant="ghost">Browse destinations</Button>
+              <Button href="#start" variant="light" isKa={isKa}>{t.hero.ctaPrimary}</Button>
+              <Button href="#destinations" variant="ghost" isKa={isKa}>{t.hero.ctaSecondary}</Button>
             </div>
           </div>
 
           {/* scroll hint */}
           <div ref={hintRef} className="absolute bottom-7 left-1/2 -translate-x-1/2 text-center opacity-0">
-            <div className="text-[15px] text-[#F5EEE6]/70">Scroll to begin</div>
+            <div className={`${isKa ? 'text-[13px]' : 'text-[15px]'} text-[#F5EEE6]/70`}>{t.hero.scrollHint}</div>
             <div className="mx-auto mt-3 h-10 w-px overflow-hidden bg-[#F5EEE6]/20">
               <ScrollLine />
             </div>
           </div>
 
           {/* film captions */}
-          <Caption refEl={cap1Ref}>Most trips start at a desk like this one.</Caption>
-          <Caption refEl={cap2Ref}>Type where you want to go, and when.</Caption>
+          <Caption refEl={cap1Ref} isKa={isKa} headingFontClass={typo.headingFontClass}>{t.hero.caption1}</Caption>
+          <Caption refEl={cap2Ref} isKa={isKa} headingFontClass={typo.headingFontClass}>{t.hero.caption2}</Caption>
 
           {/* Outro inside the world: the search result */}
           <div
             ref={outroRef}
+            data-testid="hero-outro"
             className={isDesktop ? 'absolute bottom-[10vh] left-[6vw] right-[6vw] opacity-0' : 'absolute bottom-[7vh] left-5 right-5 opacity-0'}
           >
-            <div className="flex items-center gap-2 text-[15px] text-white/85 [text-shadow:0_1px_12px_rgba(0,0,0,.4)]">
+            <div className={`flex items-center gap-2 ${isKa ? 'text-[13.5px]' : 'text-[15px]'} text-white/85 [text-shadow:0_1px_12px_rgba(0,0,0,.4)]`}>
               <span className="h-[6px] w-[6px] rounded-full bg-[#E9875E]" />
-              Pokhara, Nepal · {TOURS.length} tours for your dates
+              {t.hero.outroBadge}
             </div>
             <h2
-              className={`mt-3 font-['Outfit',system-ui,sans-serif] font-bold leading-[0.92] tracking-[-0.045em] text-white [text-shadow:0_4px_40px_rgba(20,15,30,.45)] ${
-                isDesktop ? 'text-[clamp(56px,6.6vw,108px)]' : 'text-[50px]'
+              className={`mt-3 ${typo.headingFontClass} font-bold text-white [text-shadow:0_4px_40px_rgba(20,15,30,.45)] ${
+                isKa
+                  ? isDesktop
+                    ? 'text-[clamp(44px,5.1vw,84px)] leading-[1.04] tracking-[-0.02em]'
+                    : 'text-[38px] leading-[1.06] tracking-[-0.02em]'
+                  : isDesktop
+                    ? 'text-[clamp(56px,6.6vw,108px)] leading-[0.92] tracking-[-0.045em]'
+                    : 'text-[50px] leading-[0.92] tracking-[-0.045em]'
               }`}
             >
-              This is Phewa Lake at sunset.
+              {t.hero.outroTitle}
             </h2>
             <div className={`mt-6 flex gap-3 ${isDesktop ? '' : 'flex-col'}`}>
-              {(isDesktop ? TOURS.slice(0, 3) : TOURS.slice(0, 1)).map((tour) => (
+              {(isDesktop ? t.hero.tours.slice(0, 3) : t.hero.tours.slice(0, 1)).map((tour) => (
                 <a
                   key={tour.name}
                   href="#start"
@@ -237,21 +290,21 @@ export default function Hero() {
                     isDesktop ? 'w-[290px]' : ''
                   }`}
                 >
-                  <div className="flex items-center justify-between text-[15px] text-white/60">
+                  <div className={`flex items-center justify-between ${isKa ? 'text-[13.5px]' : 'text-[15px]'} text-white/60`}>
                     <span>{tour.days}</span>
                     <span>★ {tour.rating}</span>
                   </div>
-                  <div className="mt-2 text-[18px] font-medium leading-tight">{tour.name}</div>
-                  <div className="mt-1 text-[15px] text-white/65">{tour.detail}</div>
+                  <div className={`mt-2 font-medium leading-tight ${isKa ? 'text-[15.5px]' : 'text-[18px]'}`}>{tour.name}</div>
+                  <div className={`mt-1 text-white/65 ${isKa ? 'text-[13px]' : 'text-[15px]'}`}>{tour.detail}</div>
                   <div className="mt-4 flex items-end justify-between">
-                    <span className="text-[15px] text-white/60">from</span>
-                    <span className="text-[22px] font-medium">{tour.price}</span>
+                    <span className={`${isKa ? 'text-[13px]' : 'text-[15px]'} text-white/60`}>{t.hero.outroFrom}</span>
+                    <span className={`${isKa ? 'text-[20px]' : 'text-[22px]'} font-medium`}>{tour.price}</span>
                   </div>
                 </a>
               ))}
             </div>
             <div className="mt-6">
-              <Button href="#start" variant="light">See all {TOURS.length} tours</Button>
+              <Button href="#start" variant="light" isKa={isKa}>{t.hero.outroCta}</Button>
             </div>
           </div>
 
@@ -266,10 +319,24 @@ export default function Hero() {
   )
 }
 
-function Caption({ children, refEl }: { children: React.ReactNode; refEl: React.RefObject<HTMLDivElement | null> }) {
+function Caption({
+  children,
+  refEl,
+  isKa,
+  headingFontClass,
+}: {
+  children: React.ReactNode
+  refEl: React.RefObject<HTMLDivElement | null>
+  isKa: boolean
+  headingFontClass: string
+}) {
   return (
     <div ref={refEl} className="absolute inset-x-5 bottom-[12vh] text-center opacity-0">
-      <span className="font-['Outfit',system-ui,sans-serif] text-[clamp(22px,2.4vw,34px)] font-medium tracking-[-0.02em] text-[#F5EEE6] [text-shadow:0_2px_24px_rgba(0,0,0,.55)]">
+      <span
+        className={`${headingFontClass} font-medium text-[#F5EEE6] [text-shadow:0_2px_24px_rgba(0,0,0,.55)] ${
+          isKa ? 'text-[clamp(18px,2.0vw,28px)] tracking-[-0.01em]' : 'text-[clamp(22px,2.4vw,34px)] tracking-[-0.02em]'
+        }`}
+      >
         {children}
       </span>
     </div>
@@ -281,12 +348,13 @@ function Caption({ children, refEl }: { children: React.ReactNode; refEl: React.
 /* ------------------------------------------------------------------ */
 function Navbar({ isDesktop }: { isDesktop: boolean }) {
   const [open, setOpen] = useState(false)
+  const { lang, isKa, t, typo, toggleLang } = useLanguage()
   const scale = useDesignScale()
   const dark = 'border border-white/10 bg-[#14261E]/55 backdrop-blur-xl'
 
   if (isDesktop) {
     return (
-      <header className="absolute inset-x-0 top-0 z-50 flex justify-center font-['Figtree',system-ui,sans-serif] antialiased">
+      <header className={`absolute inset-x-0 top-0 z-50 flex justify-center ${typo.bodyFontClass} antialiased`}>
         <div style={{ width: 1600, transform: `scale(${scale})`, transformOrigin: 'top center' }}>
           <div className="mx-[40px] mt-[22px] flex items-center justify-between">
             {/* logo */}
@@ -295,31 +363,47 @@ function Navbar({ isDesktop }: { isDesktop: boolean }) {
             </div>
             {/* links on a light pill */}
             <nav className="flex h-[58px] items-center gap-[2px] rounded-full bg-[#F6F9F4] p-[6px] shadow-[0_18px_40px_-20px_rgba(0,0,0,.55)]">
-              {NAV_LINKS.map((l) => (
+              {t.nav.links.map((l) => (
                 <a
-                  key={l.label}
+                  key={l.href + l.label}
                   href={l.href}
-                  className="relative flex h-full items-center rounded-full px-[20px] text-[16px] font-medium text-[#1E3B2E] transition-colors duration-300 hover:bg-[#1E3B2E] hover:text-[#F6F9F4]"
+                  className={`relative flex h-full items-center whitespace-nowrap rounded-full font-medium text-[#1E3B2E] transition-colors duration-300 hover:bg-[#1E3B2E] hover:text-[#F6F9F4] ${
+                    isKa ? 'px-[16px] text-[14px]' : 'px-[20px] text-[16px]'
+                  }`}
                 >
                   {l.label}
-                  {l.dot && <span className="ml-[8px] rounded-full bg-[#E9834B] px-[8px] py-[1px] text-[14px] font-semibold text-[#14261E]">New</span>}
+                  {l.dot && (
+                    <span
+                      className={`ml-[8px] rounded-full bg-[#E9834B] px-[8px] py-[1px] font-semibold text-[#14261E] ${
+                        isKa ? 'text-[12px]' : 'text-[14px]'
+                      }`}
+                    >
+                      {t.nav.newTag}
+                    </span>
+                  )}
                 </a>
               ))}
             </nav>
-            {/* currency, sign in, main action */}
+            {/* language switcher + main action */}
             <div className={`flex h-[58px] items-center gap-[4px] rounded-full p-[6px] ${dark}`}>
-              <button className="flex h-full items-center gap-[8px] rounded-full px-[14px] text-[16px] text-[#F5EEE6]/85 transition-colors duration-300 hover:bg-white/10 hover:text-[#F5EEE6]">
-                <Globe />
-                USD
+              <button
+                type="button"
+                onClick={toggleLang}
+                aria-label={t.nav.langAria}
+                data-testid="lang-toggle-desktop"
+                className="flex h-full cursor-pointer items-center gap-[6px] whitespace-nowrap rounded-full px-[16px] text-[14px] font-medium tracking-[0.02em] text-[#F5EEE6] transition-colors duration-300 hover:bg-white/10"
+              >
+                <span className={lang === 'en' ? 'font-semibold text-[#F3A26B]' : 'text-[#F5EEE6]/55'}>EN</span>
+                <span className="text-[#F5EEE6]/30">|</span>
+                <span className={lang === 'ka' ? 'font-semibold text-[#F3A26B]' : 'text-[#F5EEE6]/55'}>ქარ</span>
               </button>
-              <a href="#start" className="flex h-full items-center rounded-full px-[14px] text-[16px] text-[#F5EEE6]/85 transition-colors duration-300 hover:bg-white/10 hover:text-[#F5EEE6]">
-                Sign in
-              </a>
               <a
                 href="#start"
-                className="group flex h-full items-center gap-[8px] rounded-full bg-[#E9834B] px-[20px] text-[16px] font-semibold text-[#14261E] transition-[background-color,transform] duration-300 hover:bg-[#F3A26B] active:scale-[0.97]"
+                className={`group flex h-full items-center gap-[8px] whitespace-nowrap rounded-full bg-[#E9834B] font-semibold text-[#14261E] transition-[background-color,transform] duration-300 hover:bg-[#F3A26B] active:scale-[0.97] ${
+                  isKa ? 'px-[18px] text-[14px]' : 'px-[20px] text-[16px]'
+                }`}
               >
-                Find a tour
+                {t.nav.cta}
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden className="transition-transform duration-300 group-hover:-rotate-45">
                   <path d="M3 8h10m-4-4 4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -331,53 +415,68 @@ function Navbar({ isDesktop }: { isDesktop: boolean }) {
     )
   }
   return (
-    <header className="absolute inset-x-0 top-0 z-50 font-['Figtree',system-ui,sans-serif] text-[#F5EEE6] antialiased">
-      <div className="mx-3 mt-3 flex items-center justify-between">
+    <header className={`absolute inset-x-0 top-0 z-50 ${typo.bodyFontClass} text-[#F5EEE6] antialiased`}>
+      <div className="mx-3 mt-3 flex items-center justify-between gap-2">
         <div className={`flex h-[52px] items-center rounded-full pl-[14px] pr-[18px] ${dark}`}>
           <Logo />
         </div>
-        <button
-          aria-label="Menu"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-          className="relative h-[52px] w-[52px] rounded-full bg-[#F6F9F4] text-[#1E3B2E] shadow-[0_12px_30px_-14px_rgba(0,0,0,.6)]"
-        >
-          <span className={`absolute left-[16px] right-[16px] top-[21px] h-[2px] rounded bg-current transition-transform duration-300 ${open ? 'translate-y-[4px] rotate-45' : ''}`} />
-          <span className={`absolute left-[16px] right-[16px] top-[29px] h-[2px] rounded bg-current transition-transform duration-300 ${open ? '-translate-y-[4px] -rotate-45' : ''}`} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleLang}
+            aria-label={t.nav.langAria}
+            data-testid="lang-toggle-mobile"
+            className={`flex h-[52px] cursor-pointer items-center gap-[5px] whitespace-nowrap rounded-full px-[14px] text-[13px] font-medium text-[#F5EEE6] transition-colors duration-300 ${dark}`}
+          >
+            <span className={lang === 'en' ? 'font-semibold text-[#F3A26B]' : 'text-[#F5EEE6]/55'}>EN</span>
+            <span className="text-[#F5EEE6]/30">|</span>
+            <span className={lang === 'ka' ? 'font-semibold text-[#F3A26B]' : 'text-[#F5EEE6]/55'}>ქარ</span>
+          </button>
+          <button
+            type="button"
+            aria-label={t.nav.menuAria}
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            className="relative h-[52px] w-[52px] shrink-0 rounded-full bg-[#F6F9F4] text-[#1E3B2E] shadow-[0_12px_30px_-14px_rgba(0,0,0,.6)]"
+          >
+            <span className={`absolute left-[16px] right-[16px] top-[21px] h-[2px] rounded bg-current transition-transform duration-300 ${open ? 'translate-y-[4px] rotate-45' : ''}`} />
+            <span className={`absolute left-[16px] right-[16px] top-[29px] h-[2px] rounded bg-current transition-transform duration-300 ${open ? '-translate-y-[4px] -rotate-45' : ''}`} />
+          </button>
+        </div>
       </div>
       <div className={`mx-3 mt-2 grid overflow-hidden rounded-[24px] bg-[#F6F9F4] text-[#1E3B2E] transition-[grid-template-rows,opacity] duration-500 ${open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
         <nav className="min-h-0">
           <div className="flex flex-col p-3">
-            {NAV_LINKS.map((l) => (
-              <a key={l.label} href={l.href} onClick={() => setOpen(false)} className="flex items-center justify-between rounded-[14px] px-3 py-3 text-[18px] font-medium hover:bg-[#1E3B2E]/5">
+            {t.nav.links.map((l) => (
+              <a
+                key={l.href + l.label}
+                href={l.href}
+                onClick={() => setOpen(false)}
+                className={`flex items-center justify-between rounded-[14px] px-3 py-3 font-medium hover:bg-[#1E3B2E]/5 ${
+                  isKa ? 'text-[16px]' : 'text-[18px]'
+                }`}
+              >
                 {l.label}
-                {l.dot && <span className="rounded-full bg-[#E9834B] px-2 py-[1px] text-[14px] font-semibold text-[#14261E]">New</span>}
+                {l.dot && (
+                  <span className={`rounded-full bg-[#E9834B] px-2 py-[1px] font-semibold text-[#14261E] ${isKa ? 'text-[12px]' : 'text-[14px]'}`}>
+                    {t.nav.newTag}
+                  </span>
+                )}
               </a>
             ))}
-            <div className="mx-3 mt-2 flex items-center justify-between border-t border-[#1E3B2E]/10 pt-4 text-[16px] text-[#1E3B2E]/70">
-              <span className="flex items-center gap-2">
-                <Globe />
-                Currency
-              </span>
-              <span>USD $</span>
-            </div>
-            <a href="#start" onClick={() => setOpen(false)} className="mt-4 flex h-[52px] items-center justify-center rounded-full bg-[#E9834B] text-[16px] font-semibold text-[#14261E]">
-              Find a tour
+            <a
+              href="#start"
+              onClick={() => setOpen(false)}
+              className={`mt-3 flex h-[52px] items-center justify-center rounded-full bg-[#E9834B] font-semibold text-[#14261E] ${
+                isKa ? 'text-[14.5px]' : 'text-[16px]'
+              }`}
+            >
+              {t.nav.cta}
             </a>
           </div>
         </nav>
       </div>
     </header>
-  )
-}
-
-function Globe() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeOpacity=".8" />
-      <path d="M1.5 8h13M8 1.5c2 2 2.8 4.2 2.8 6.5S10 12.5 8 14.5C6 12.5 5.2 10.3 5.2 8S6 3.5 8 1.5Z" stroke="currentColor" strokeOpacity=".8" />
-    </svg>
   )
 }
 
@@ -424,9 +523,13 @@ function Logo() {
   )
 }
 
-function Badge({ children }: { children: React.ReactNode }) {
+function Badge({ children, isKa }: { children: React.ReactNode; isKa?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-[#F5EEE6]/20 bg-[#F5EEE6]/[0.06] px-3 py-[6px] text-[15px] text-[#F5EEE6]/85 backdrop-blur-md">
+    <span
+      className={`inline-flex items-center gap-2 rounded-full border border-[#F5EEE6]/20 bg-[#F5EEE6]/[0.06] px-3 py-[6px] text-[#F5EEE6]/85 backdrop-blur-md ${
+        isKa ? 'text-[13.5px]' : 'text-[15px]'
+      }`}
+    >
       <span className="h-[6px] w-[6px] rounded-full bg-[#E9875E] shadow-[0_0_12px_#E9875E]" />
       {children}
     </span>
@@ -438,11 +541,13 @@ function Button({
   children,
   variant,
   small,
+  isKa,
 }: {
   href: string
   children: React.ReactNode
   variant: 'light' | 'ghost'
   small?: boolean
+  isKa?: boolean
 }) {
   const base =
     variant === 'light'
@@ -450,15 +555,20 @@ function Button({
       : 'bg-[#F5EEE6]/[0.06] text-[#F5EEE6] border-[#F5EEE6]/25 backdrop-blur-md'
   const sweep = variant === 'light' ? 'bg-[#14120E]' : 'bg-[#F5EEE6]'
   const hoverText = variant === 'light' ? 'group-hover:text-[#F5EEE6]' : 'group-hover:text-[#14120E]'
+  const sizeCls = small
+    ? isKa
+      ? 'h-[44px] px-[18px] text-[13.5px]'
+      : 'h-[44px] px-[20px] text-[15px]'
+    : isKa
+      ? 'h-[52px] px-[22px] text-[14px]'
+      : 'h-[52px] px-[26px] text-[16px]'
   return (
     <a
       href={href}
-      className={`group relative inline-flex items-center overflow-hidden rounded-full border ${base} ${
-        small ? 'h-[44px] px-[20px] text-[15px]' : 'h-[52px] px-[26px] text-[16px]'
-      } font-medium transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-[3px] hover:shadow-[0_14px_30px_-12px_rgba(0,0,0,.55)] active:scale-[0.97]`}
+      className={`group relative inline-flex items-center whitespace-nowrap overflow-hidden rounded-full border ${base} ${sizeCls} font-medium transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-[3px] hover:shadow-[0_14px_30px_-12px_rgba(0,0,0,.55)] active:scale-[0.97]`}
     >
       <span className={`absolute inset-0 origin-left scale-x-0 ${sweep} transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100`} />
-      <span className={`relative block overflow-hidden ${hoverText} transition-colors duration-500`}>
+      <span className={`relative block overflow-hidden leading-[1.3] ${hoverText} transition-colors duration-500`}>
         <span className="block transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-full">{children}</span>
         <span className="absolute inset-0 block translate-y-full transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-y-0">
           {children}
@@ -535,10 +645,12 @@ type Engine = {
   resize: () => void
   setFade: (f: number) => void
   dispose: () => void
+  gl: WebGLRenderingContext | WebGL2RenderingContext
 }
 
-function createEngine(THREE: Any, canvas: HTMLCanvasElement, opts: { query: string }): Engine {
+function createEngine(THREE: Any, canvas: HTMLCanvasElement, opts: { query: string; isSoftwareGl?: boolean }): Engine {
   const mobile = window.innerWidth < 768
+  const isSoftwareGl = Boolean(opts.isSoftwareGl)
   const ease = {
     inOut: (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
     in: (x: number) => x * x * x,
@@ -556,9 +668,9 @@ function createEngine(THREE: Any, canvas: HTMLCanvasElement, opts: { query: stri
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false })
   renderer.outputColorSpace = THREE.LinearSRGBColorSpace
   renderer.toneMapping = THREE.NoToneMapping
-  renderer.shadowMap.enabled = true
+  renderer.shadowMap.enabled = !isSoftwareGl
   renderer.shadowMap.type = THREE.VSMShadowMap
-  let pixelRatio = Math.min(window.devicePixelRatio || 1, mobile ? 1.25 : 1.5)
+  let pixelRatio = isSoftwareGl ? 0.75 : Math.min(window.devicePixelRatio || 1, mobile ? 1.25 : 1.5)
 
   /* ---------------- noise + procedural textures ---------------- */
   const perm = new Uint8Array(512)
@@ -1876,7 +1988,7 @@ function createEngine(THREE: Any, canvas: HTMLCanvasElement, opts: { query: stri
     // popular chips / searching state
     if (op <= 0) {
       ui.font = '500 17px "Inter Tight", system-ui, sans-serif'
-      const chips = ["Cox's Bazar", 'Sajek Valley', 'Kathmandu', 'Bali', 'Maldives']
+      const chips = ['Lake Brienz', 'Geiranger', 'Reykjavik', 'Dolomites', 'Bali']
       let cx = W / 2 - 330
       ui.textAlign = 'left'
       chips.forEach((c) => {
@@ -2131,5 +2243,6 @@ function createEngine(THREE: Any, canvas: HTMLCanvasElement, opts: { query: stri
       disposables.forEach((d) => d?.dispose?.())
       renderer.dispose()
     },
+    gl: renderer.getContext(),
   }
 }
