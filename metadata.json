@@ -1,0 +1,6 @@
+{
+  "name": "Worldline",
+  "description": "Small-group tours with 3D previews of every destination before you book.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
